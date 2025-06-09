@@ -98,6 +98,7 @@ class ZemaxFileReader:
             "VCXN": self._read_vignette_compress_x,
             "VCYN": self._read_vignette_compress_y,
             "VANN": self._read_vignette_tangent_angle,
+            "SDIA": self._read_surface_semi_diameter,
         }
 
         self._current_surf = -1
@@ -218,13 +219,37 @@ class ZemaxFileReader:
             self.data["aperture"]["object_cone_angle"] = float(data[1])
 
     def _read_floating_stop(self, data: list[str]):
-        """Marks the aperture definition as 'floating_stop'.
+        """Marks the aperture definition as ``float_by_stop_size``.
 
         Args:
             data (list[str]): List of string data values from the Zemax file line.
 
         """
-        self.data["aperture"]["floating_stop"] = True
+        self.data["aperture"]["float_by_stop_size"] = None
+
+    def _read_surface_semi_diameter(self, data: list[str]):
+        """Extracts the surface semi diameter.
+
+        The format of ``SDIA`` lines is ``SDIA <surf_idx> <config> <value> ...``.
+        Only the first configuration is currently supported.
+
+        Args:
+            data (list[str]): List of string data values from the Zemax file line.
+        """
+        surf_idx = int(data[1])
+        config_idx = int(data[2])
+        if config_idx != 1:
+            return
+        semi_d = float(data[3])
+        if surf_idx not in self.data["surfaces"]:
+            self.data["surfaces"][surf_idx] = {}
+        self.data["surfaces"][surf_idx]["semi_diameter"] = semi_d
+
+        if (
+            "float_by_stop_size" in self.data["aperture"]
+            and self.data["surfaces"][surf_idx].get("is_stop")
+        ):
+            self.data["aperture"]["float_by_stop_size"] = 2 * semi_d
 
     def _read_config_data(self, data: list[str]):
         """Extracts general configuration data like field type, number of

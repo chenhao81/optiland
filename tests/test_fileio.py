@@ -4,7 +4,12 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from optiland.fileio import ZemaxFileReader, load_optiland_file, save_optiland_file
+from optiland.fileio import (
+    ZemaxFileReader,
+    load_optiland_file,
+    save_optiland_file,
+    load_zemax_file,
+)
 from optiland.fileio.optiland_handler import load_obj_from_json, save_obj_to_json
 from optiland.materials import Material
 from optiland.optic import Optic
@@ -50,6 +55,13 @@ def zemax_file_fold_mirrors():
 @pytest.fixture
 def zemax_fold_mirrors_reader(zemax_file_fold_mirrors):
     return ZemaxFileReader(zemax_file_fold_mirrors)
+
+
+@pytest.fixture
+def zemax_file_float_stop():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(current_dir, "zemax_files/float_stop.zmx")
+    return filename
 
 
 def replace_line_in_zmx(zmx_file, line_prefix, new_line):
@@ -390,6 +402,11 @@ class TestZemaxToOpticConverter:
         lens = zemax_fold_mirrors_reader.generate_lens()
         assert lens is not None
         assert isinstance(lens, Optic)
+
+    def test_float_stop_file(self, set_test_backend, zemax_file_float_stop):
+        lens = load_zemax_file(zemax_file_float_stop)
+        assert lens.aperture.ap_type == "float_by_stop_size"
+        assert lens.aperture.value == pytest.approx(7.725, rel=1e-3)
 
 
 def test_save_load_json_obj(set_test_backend):

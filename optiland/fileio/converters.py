@@ -211,12 +211,33 @@ class ZemaxToOpticConverter:
     def _configure_aperture(self):
         """Configures the aperture for the optic."""
         aperture_data = self.data["aperture"]
-        ap_type, value = next(iter(aperture_data.items()))
-        self.optic.set_aperture(aperture_type=ap_type, value=value)
+
+        if "float_by_stop_size" in aperture_data:
+            value = aperture_data["float_by_stop_size"]
+            if value is None:
+                for surf in self.data["surfaces"].values():
+                    if surf.get("is_stop") and "semi_diameter" in surf:
+                        value = 2 * surf["semi_diameter"]
+                        break
+            self.optic.set_aperture(
+                aperture_type="float_by_stop_size",
+                value=value,
+            )
+            return
+
+        for key in ("EPD", "imageFNO", "objectNA"):
+            if key in aperture_data:
+                self.optic.set_aperture(aperture_type=key, value=aperture_data[key])
+                return
+
+        raise ValueError("No aperture data found in Zemax file.")
 
     def _configure_fields(self):
         """Configure the fields for the optic."""
-        self.optic.set_field_type(field_type=self.data["fields"]["type"])
+        field_type = self.data["fields"]["type"]
+        if field_type not in ["angle", "object_height"]:
+            field_type = "angle"
+        self.optic.set_field_type(field_type=field_type)
 
         field_x = self.data["fields"]["x"]
         field_y = self.data["fields"]["y"]
